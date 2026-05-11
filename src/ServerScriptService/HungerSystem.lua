@@ -70,10 +70,12 @@ local rootPart = cubeModel:WaitForChild("HumanoidRootPart")
 local hungerBarGui = rootPart:WaitForChild("HungerBar", 10)
 local fillFrame = nil
 
+local bgFrame = nil
+
 if hungerBarGui then
-	local bg = hungerBarGui:FindFirstChild("Background")
-	if bg then
-		fillFrame = bg:FindFirstChild("Fill")
+	bgFrame = hungerBarGui:FindFirstChild("Background")
+	if bgFrame then
+		fillFrame = bgFrame:FindFirstChild("Fill")
 	end
 	if not fillFrame then
 		fillFrame = hungerBarGui:FindFirstChildWhichIsA("Frame", true)
@@ -85,6 +87,16 @@ end
 
 if not fillFrame then
 	warn("[HungerSystem] HungerBar Fill frame not found — bar won't update visually.")
+end
+
+-- Fix bar clipping: ensure Fill stays inside Background
+if bgFrame then
+	bgFrame.ClipsDescendants = true
+end
+if fillFrame then
+	fillFrame.AnchorPoint = Vector2.new(0, 0)
+	fillFrame.Position     = UDim2.new(0, 0, 0, 0)
+	fillFrame.Size         = UDim2.new(1, 0, 1, 0)
 end
 
 -- ========== FOOD BOWL ==========
@@ -192,7 +204,9 @@ local function updateHungerBar()
 	local ratio = math.clamp(currentHunger / HUNGER.MAX, 0, 1)
 
 	if fillFrame then
+		-- Only change X scale; Y stays at full height so the bar never escapes vertically
 		fillFrame.Size = UDim2.new(ratio, 0, 1, 0)
+		fillFrame.Position = UDim2.new(0, 0, 0, 0)
 
 		if ratio > 0.5 then
 			fillFrame.BackgroundColor3 = HUNGER.BAR_COLOR_FULL
