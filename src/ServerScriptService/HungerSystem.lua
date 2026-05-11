@@ -257,15 +257,16 @@ RunService.Heartbeat:Connect(function()
 
 	if state == State.GoingToBowl then
 		local bowl = findBowl()
-		if not bowl then state = State.Normal return end
+		if not bowl then state = State.Normal publish() return end
 		local bPos = getBowlPos(bowl)
-		if not bPos then state = State.Normal return end
+		if not bPos then state = State.Normal publish() return end
 
 		local dist = (root.Position * Vector3.new(1,0,1) - bPos * Vector3.new(1,0,1)).Magnitude
 
 		if dist <= CFG.BOWL_REACH then
 			if not bowlFull then
 				state = State.BowlEmpty; stateT = now
+				publish()
 				return
 			end
 			bowlFull = false
@@ -282,9 +283,10 @@ RunService.Heartbeat:Connect(function()
 			task.delay(CFG.EAT_DURATION, function()
 				hunger = math.clamp(hunger + CFG.EAT_RESTORE, 0, CFG.MAX_HUNGER)
 				updateBar(hunger)
-				publish()
 				state = State.Normal
+				publish()
 			end)
+			publish()
 			return
 		end
 
