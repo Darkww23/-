@@ -18,7 +18,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- ========== SHOP ITEMS ==========
 local SHOP_ITEMS = {
-	CubeFood = { price = 0 },
+	CubeFood        = { price = 25 },
+	CubeFoodPremium = { price = 100 },
 }
 
 -- ========== REMOTE EVENT ==========
@@ -58,11 +59,6 @@ shopRemote.OnServerEvent:Connect(function(player, action, itemId)
 	end
 	lastPurchase[userId] = now
 
-	if item.price > 0 then
-		-- TODO: deduct currency when currency system exists
-		return
-	end
-
 	local backpack = player:FindFirstChild("Backpack")
 	if not backpack then return end
 
@@ -82,6 +78,19 @@ shopRemote.OnServerEvent:Connect(function(player, action, itemId)
 		end
 	end
 	if count >= MAX_FOOD_IN_BACKPACK then return end
+
+	-- Deduct Orbs (after all validation passes)
+	if item.price > 0 then
+		local leaderstats = player:FindFirstChild("leaderstats")
+		if not leaderstats then return end
+		local orbsVal = leaderstats:FindFirstChild("Orbs")
+		if not orbsVal then return end
+		if orbsVal.Value < item.price then
+			shopRemote:FireClient(player, "noFunds", itemId)
+			return
+		end
+		orbsVal.Value = orbsVal.Value - item.price
+	end
 
 	local tool = createFoodTool(itemId)
 	tool.Parent = backpack
