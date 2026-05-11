@@ -2,44 +2,31 @@
 	ShopSystem.lua
 	Shop system for "Raise a Geometry Cube".
 
-	• ProximityPrompt on ShopPart opens the shop GUI for the player
-	• Player can buy CubeFood (free) — Tool is added to Backpack
+	• ProximityPrompt on ShopPart opens the player's CubeShopGui
+	• Player clicks PurchaseBasicFood → server gives CubeFood Tool
 	• Easily extendable: add items to SHOP_ITEMS table
 
 	Expected workspace layout:
 	  workspace
-	    └─ ShopPart (BasePart with ProximityPrompt auto-created)
+	    └─ ShopPart (BasePart — ProximityPrompt auto-created)
 
 	Place in ServerScriptService.
 ]]
 
 local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local ServerStorage     = game:GetService("ServerStorage")
 
 -- ========== SHOP ITEMS ==========
 local SHOP_ITEMS = {
-	{
-		id    = "CubeFood",
-		name  = "Cube Food",
-		price = 0,
-		desc  = "Basic food for your cube. Restores hunger.",
-	},
+	CubeFood = { price = 0 },
 }
 
--- ========== REMOTE EVENTS ==========
+-- ========== REMOTE EVENT ==========
 local shopRemote = ReplicatedStorage:FindFirstChild("ShopRemote")
 if not shopRemote then
 	shopRemote = Instance.new("RemoteEvent")
 	shopRemote.Name = "ShopRemote"
 	shopRemote.Parent = ReplicatedStorage
-end
-
-local shopDataRemote = ReplicatedStorage:FindFirstChild("ShopData")
-if not shopDataRemote then
-	shopDataRemote = Instance.new("RemoteFunction")
-	shopDataRemote.Name = "ShopData"
-	shopDataRemote.Parent = ReplicatedStorage
 end
 
 -- ========== TOOL CREATION ==========
@@ -51,39 +38,25 @@ local function createFoodTool(itemId)
 	return tool
 end
 
--- ========== SHOP DATA REQUEST ==========
-shopDataRemote.OnServerInvoke = function(player)
-	return SHOP_ITEMS
-end
-
 -- ========== PURCHASE HANDLER ==========
 shopRemote.OnServerEvent:Connect(function(player, action, itemId)
 	if action ~= "buy" then return end
 
-	local item
-	for _, shopItem in ipairs(SHOP_ITEMS) do
-		if shopItem.id == itemId then
-			item = shopItem
-			break
-		end
-	end
-
+	local item = SHOP_ITEMS[itemId]
 	if not item then return end
 
-	-- Check price (for now all free, but ready for currency)
 	if item.price > 0 then
-		-- TODO: deduct currency from player when currency system exists
+		-- TODO: deduct currency when currency system exists
 		return
 	end
 
-	-- Give tool to player
 	local backpack = player:FindFirstChild("Backpack")
 	if not backpack then return end
 
-	local tool = createFoodTool(item.id)
+	local tool = createFoodTool(itemId)
 	tool.Parent = backpack
 
-	shopRemote:FireClient(player, "purchased", item.id)
+	shopRemote:FireClient(player, "purchased", itemId)
 end)
 
 -- ========== PROXIMITY PROMPT ON SHOP PART ==========
@@ -104,7 +77,6 @@ local function setupShopPrompt(shopPart)
 	end)
 end
 
--- Find ShopPart in workspace
 local shopPart = workspace:FindFirstChild("ShopPart")
 if shopPart then
 	setupShopPrompt(shopPart)
