@@ -66,11 +66,19 @@ shopRemote.OnServerEvent:Connect(function(player, action, itemId)
 	local backpack = player:FindFirstChild("Backpack")
 	if not backpack then return end
 
-	-- Cap max food items in backpack
+	-- Cap max food items (backpack + equipped)
 	local count = 0
 	for _, child in ipairs(backpack:GetChildren()) do
 		if child:IsA("Tool") and SHOP_ITEMS[child.Name] then
 			count = count + 1
+		end
+	end
+	local character = player.Character
+	if character then
+		for _, child in ipairs(character:GetChildren()) do
+			if child:IsA("Tool") and SHOP_ITEMS[child.Name] then
+				count = count + 1
+			end
 		end
 	end
 	if count >= MAX_FOOD_IN_BACKPACK then return end
