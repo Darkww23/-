@@ -4,7 +4,7 @@
 
 	• Hunger decays over time; the bar only shrinks (no color/position changes)
 	• Player fills the bowl with one click (ProximityPrompt) using food from Backpack
-	• Visual effects: particles on bowl fill + cube eating sparkles
+	• Visual effects: uses FoodBowl → FoodBowlEffects ParticleEmitter
 	• Empty bowl — cube walks away hungry
 
 	workspace layout:
@@ -86,34 +86,17 @@ local function updateBar(hunger)
 end
 
 -- ========== VISUAL EFFECTS ==========
-local function spawnParticles(part, color, duration)
-	local att = Instance.new("Attachment")
-	att.Parent = part
+-- Uses the player's own ParticleEmitter inside FoodBowl → FoodBowlEffects
+local function playBowlEffect(bowl)
+	local effectsPart = bowl:FindFirstChild("FoodBowlEffects")
+	if not effectsPart then return end
 
-	local emitter = Instance.new("ParticleEmitter")
-	emitter.Color = ColorSequence.new(color)
-	emitter.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.5),
-		NumberSequenceKeypoint.new(1, 0),
-	})
-	emitter.Lifetime = NumberRange.new(0.4, 0.8)
-	emitter.Rate = 40
-	emitter.Speed = NumberRange.new(3, 6)
-	emitter.SpreadAngle = Vector2.new(180, 180)
-	emitter.Parent = att
-
-	task.delay(duration, function()
-		emitter.Enabled = false
-		task.delay(1, function() att:Destroy() end)
-	end)
-end
-
-local function bowlFillEffect(part)
-	spawnParticles(part, Color3.fromRGB(255, 200, 50), 0.8)
-end
-
-local function cubeEatEffect()
-	spawnParticles(root, Color3.fromRGB(100, 255, 100), CFG.EAT_DURATION)
+	for _, emitter in ipairs(effectsPart:GetDescendants()) do
+		if emitter:IsA("ParticleEmitter") then
+			emitter.Enabled = true
+			task.delay(1.5, function() emitter.Enabled = false end)
+		end
+	end
 end
 
 -- ========== FOOD BOWL ==========
@@ -185,7 +168,7 @@ local function setupPrompt(b)
 		bowlFull = true
 		prompt.Enabled = false
 
-		bowlFillEffect(part)
+		playBowlEffect(b)
 
 		local remote = ReplicatedStorage:FindFirstChild("BowlNotification")
 		if remote then
@@ -255,7 +238,6 @@ RunService.Heartbeat:Connect(function()
 	if state ~= State.Eating then
 		hunger = math.max(0, hunger - CFG.DECAY_PER_SEC * dt)
 		updateBar(hunger)
-		publish()
 
 		-- Sync to clients at most once per second to avoid queue overflow
 		if now - lastRemoteSync >= 1.0 then
@@ -269,26 +251,28 @@ RunService.Heartbeat:Connect(function()
 			state = State.GoingToBowl
 			stateT = now; lastPath = 0; wps = nil; wpI = 0
 		end
+		publish()
 		return
 	end
 
 	if state == State.GoingToBowl then
 		local bowl = findBowl()
-		if not bowl then state = State.Normal return end
+		if not bowl then state = State.Normal publish() return end
 		local bPos = getBowlPos(bowl)
-		if not bPos then state = State.Normal return end
+		if not bPos then state = State.Normal publish() return end
 
 		local dist = (root.Position * Vector3.new(1,0,1) - bPos * Vector3.new(1,0,1)).Magnitude
 
 		if dist <= CFG.BOWL_REACH then
 			if not bowlFull then
 				state = State.BowlEmpty; stateT = now
+				publish()
 				return
 			end
 			bowlFull = false
 			state = State.Eating; stateT = now
 			hum:MoveTo(root.Position)
-			cubeEatEffect()
+			playBowlEffect(bowl)
 
 			local part = getBowlPart(bowl)
 			if part then
@@ -299,9 +283,10 @@ RunService.Heartbeat:Connect(function()
 			task.delay(CFG.EAT_DURATION, function()
 				hunger = math.clamp(hunger + CFG.EAT_RESTORE, 0, CFG.MAX_HUNGER)
 				updateBar(hunger)
-				publish()
 				state = State.Normal
+				publish()
 			end)
+			publish()
 			return
 		end
 
@@ -323,15 +308,19 @@ RunService.Heartbeat:Connect(function()
 		if now - stateT > CFG.STUCK_TIMEOUT then
 			stateT = now; lastPath = 0; wps = nil
 		end
+		publish()
 		return
 	end
 
-	if state == State.Eating then return end
+	if state == State.Eating then publish() return end
 
 	if state == State.BowlEmpty then
 		if now - stateT >= 2.0 then state = State.Normal end
+		publish()
 		return
 	end
+
+	publish()
 end)
 
 zone.ChildAdded:Connect(function(child)
