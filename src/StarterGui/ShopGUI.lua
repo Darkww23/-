@@ -29,6 +29,7 @@ local shopFrame  = shopGui:WaitForChild("CubeShop", 10)
 local closeBtn   = shopGui:FindFirstChild("CubeShopCloseButton", true)
 local buyBasic   = shopFrame and shopFrame:FindFirstChild("PurchaseBasicFood", true)
 local buyPremium = shopFrame and shopFrame:FindFirstChild("PurchasePremiumFood", true)
+local buyUpgrade = shopFrame and shopFrame:FindFirstChild("PurchaseOrbUpgrade", true)
 
 -- Start hidden
 if shopFrame then shopFrame.Visible = false end
@@ -70,6 +71,12 @@ if buyPremium then
 	end)
 end
 
+if buyUpgrade then
+	buyUpgrade.MouseButton1Click:Connect(function()
+		tryBuy("OrbUpgrade")
+	end)
+end
+
 -- ========== SERVER EVENTS ==========
 local function flashButton(btn, success)
 	if not btn then return end
@@ -88,20 +95,34 @@ local function flashButton(btn, success)
 	end)
 end
 
+local buttonMap = {
+	CubeFood = buyBasic,
+	CubeFoodPremium = buyPremium,
+	OrbUpgrade = buyUpgrade,
+}
+
 shopRemote.OnClientEvent:Connect(function(action, data)
 	if action == "open" then
 		openShop()
 	elseif action == "purchased" then
-		if data == "CubeFood" then
-			flashButton(buyBasic, true)
-		elseif data == "CubeFoodPremium" then
-			flashButton(buyPremium, true)
+		local btn = buttonMap[data]
+		if data == "OrbUpgrade" and btn then
+			btn.Text = "✓"
+			btn.BackgroundColor3 = Color3.fromRGB(60, 200, 80)
+			task.delay(0.8, function()
+				btn.Text = "Owned"
+				btn.Active = false
+			end)
+		else
+			flashButton(btn, true)
 		end
 	elseif action == "noFunds" then
-		if data == "CubeFood" then
-			flashButton(buyBasic, false)
-		elseif data == "CubeFoodPremium" then
-			flashButton(buyPremium, false)
+		flashButton(buttonMap[data], false)
+	elseif action == "alreadyOwned" then
+		local btn = buttonMap[data]
+		if btn then
+			btn.Text = "Owned"
+			btn.Active = false
 		end
 	end
 end)
