@@ -301,7 +301,7 @@ RunService.Heartbeat:Connect(function()
 			task.delay(CFG.EAT_DURATION, function()
 				hunger = math.clamp(hunger + CFG.EAT_RESTORE, 0, CFG.MAX_HUNGER)
 				updateBar(hunger)
-				showBowlFood(bowl, false)
+				if not bowlFull then showBowlFood(bowl, false) end
 				state = State.Normal
 				publish()
 			end)
