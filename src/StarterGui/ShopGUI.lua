@@ -106,12 +106,15 @@ shopRemote.OnClientEvent:Connect(function(action, data)
 		openShop()
 	elseif action == "purchased" then
 		local btn = buttonMap[data]
-		flashButton(btn, true)
 		if data == "OrbUpgrade" and btn then
+			btn.Text = "✓"
+			btn.BackgroundColor3 = Color3.fromRGB(60, 200, 80)
 			task.delay(0.8, function()
 				btn.Text = "Owned"
 				btn.Active = false
 			end)
+		else
+			flashButton(btn, true)
 		end
 	elseif action == "noFunds" then
 		flashButton(buttonMap[data], false)
