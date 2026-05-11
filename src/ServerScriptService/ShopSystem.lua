@@ -18,7 +18,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- ========== SHOP ITEMS ==========
 local SHOP_ITEMS = {
-	CubeFood = { price = 0 },
+	CubeFood        = { price = 25 },
+	CubeFoodPremium = { price = 100 },
 }
 
 -- ========== REMOTE EVENT ==========
@@ -58,9 +59,17 @@ shopRemote.OnServerEvent:Connect(function(player, action, itemId)
 	end
 	lastPurchase[userId] = now
 
+	-- Deduct Orbs
 	if item.price > 0 then
-		-- TODO: deduct currency when currency system exists
-		return
+		local leaderstats = player:FindFirstChild("leaderstats")
+		if not leaderstats then return end
+		local orbsVal = leaderstats:FindFirstChild("Orbs")
+		if not orbsVal then return end
+		if orbsVal.Value < item.price then
+			shopRemote:FireClient(player, "noFunds", itemId)
+			return
+		end
+		orbsVal.Value = orbsVal.Value - item.price
 	end
 
 	local backpack = player:FindFirstChild("Backpack")

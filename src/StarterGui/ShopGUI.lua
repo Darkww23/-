@@ -6,14 +6,9 @@
 	  PlayerGui
 	    └─ CubeShopGui (ScreenGui)
 	         ├─ CubeShop (ScrollingFrame — main shop window)
-	         │    └─ PurchaseBasicFood (TextButton — buy CubeFood)
+	         │    ├─ PurchaseBasicFood (TextButton — buy CubeFood, 25 Orbs)
+	         │    └─ PurchasePremiumFood (TextButton — buy CubeFoodPremium, 100 Orbs)
 	         └─ CubeShopCloseButton (TextButton — close shop)
-
-	This script:
-	  • Opens CubeShopGui when server sends "open" event
-	  • Closes on CubeShopCloseButton click
-	  • Sends purchase request to server on PurchaseBasicFood click
-	  • Shows purchase confirmation feedback
 
 	Place as LocalScript in StarterGui.
 ]]
@@ -33,6 +28,7 @@ if not shopGui then warn("[ShopGUI] CubeShopGui not found") return end
 local shopFrame  = shopGui:WaitForChild("CubeShop", 10)
 local closeBtn   = shopGui:FindFirstChild("CubeShopCloseButton", true)
 local buyBasic   = shopFrame and shopFrame:FindFirstChild("PurchaseBasicFood", true)
+local buyPremium = shopFrame and shopFrame:FindFirstChild("PurchasePremiumFood", true)
 
 -- Start hidden
 if shopFrame then shopFrame.Visible = false end
@@ -53,34 +49,59 @@ end
 -- ========== PURCHASE ==========
 local purchaseCooldown = false
 
+local function tryBuy(itemId)
+	if purchaseCooldown then return end
+	purchaseCooldown = true
+	shopRemote:FireServer("buy", itemId)
+	task.delay(1, function()
+		purchaseCooldown = false
+	end)
+end
+
 if buyBasic then
 	buyBasic.MouseButton1Click:Connect(function()
-		if purchaseCooldown then return end
-		purchaseCooldown = true
+		tryBuy("CubeFood")
+	end)
+end
 
-		shopRemote:FireServer("buy", "CubeFood")
-
-		task.delay(1, function()
-			purchaseCooldown = false
-		end)
+if buyPremium then
+	buyPremium.MouseButton1Click:Connect(function()
+		tryBuy("CubeFoodPremium")
 	end)
 end
 
 -- ========== SERVER EVENTS ==========
+local function flashButton(btn, success)
+	if not btn then return end
+	local origText = btn.Text
+	local origColor = btn.BackgroundColor3
+	if success then
+		btn.Text = "✓"
+		btn.BackgroundColor3 = Color3.fromRGB(60, 200, 80)
+	else
+		btn.Text = "✗"
+		btn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+	end
+	task.delay(0.8, function()
+		btn.Text = origText
+		btn.BackgroundColor3 = origColor
+	end)
+end
+
 shopRemote.OnClientEvent:Connect(function(action, data)
 	if action == "open" then
 		openShop()
 	elseif action == "purchased" then
-		-- Brief visual feedback on the buy button
-		if data == "CubeFood" and buyBasic then
-			local origText = buyBasic.Text
-			local origColor = buyBasic.BackgroundColor3
-			buyBasic.Text = "✓"
-			buyBasic.BackgroundColor3 = Color3.fromRGB(60, 200, 80)
-			task.delay(0.8, function()
-				buyBasic.Text = origText
-				buyBasic.BackgroundColor3 = origColor
-			end)
+		if data == "CubeFood" then
+			flashButton(buyBasic, true)
+		elseif data == "CubeFoodPremium" then
+			flashButton(buyPremium, true)
+		end
+	elseif action == "noFunds" then
+		if data == "CubeFood" then
+			flashButton(buyBasic, false)
+		elseif data == "CubeFoodPremium" then
+			flashButton(buyPremium, false)
 		end
 	end
 end)
