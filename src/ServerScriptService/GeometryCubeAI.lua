@@ -202,6 +202,9 @@ local stateStart    = tick()
 local function switchState(newState)
 	currentState = newState
 	stateStart   = tick()
+	if newState == State.Idle then
+		targetPosition = nil
+	end
 end
 
 -- ========== MAIN BEHAVIOUR LOOP ==========
@@ -254,6 +257,11 @@ local function onStep()
 		local pause = CFG.WAYPOINT_PAUSE_MIN
 			+ math.random() * (CFG.WAYPOINT_PAUSE_MAX - CFG.WAYPOINT_PAUSE_MIN)
 		pauseUntil = tick() + pause
+		return
+	end
+
+	-- Pick destination after pause expires (avoids counting pause in stuck timer)
+	if not targetPosition then
 		pickNewDestination()
 		return
 	end
@@ -344,12 +352,13 @@ local function onStep()
 end
 
 -- ========== CONNECT HEARTBEAT ==========
-RunService.Heartbeat:Connect(onStep)
+local heartbeatConn = RunService.Heartbeat:Connect(onStep)
 
 -- Handle the cube being destroyed
 cubeModel.AncestryChanged:Connect(function(_, parent)
 	if not parent then
 		warn("[GeometryCubeAI] GeometryCube was removed — stopping AI.")
+		heartbeatConn:Disconnect()
 	end
 end)
 
