@@ -45,7 +45,10 @@ if not cube then warn("[Hunger] No GeometryCube") return end
 local hum  = cube:WaitForChild("Humanoid")
 local root = cube:WaitForChild("HumanoidRootPart")
 
--- ========== HUNGER BAR (only shrinks — no color/position changes) ==========
+-- ========== HUNGER BAR ==========
+-- We NEVER touch Size, Position, AnchorPoint, or Color of the Fill frame.
+-- Instead we use a UIGradient on the Fill: the left portion stays visible,
+-- the right portion becomes transparent — the bar visually shrinks in place.
 local barGui = root:WaitForChild("HungerBar", 10)
 local fill
 local bg
@@ -54,18 +57,32 @@ if barGui then
 	bg = barGui:FindFirstChild("Background")
 	if bg then fill = bg:FindFirstChild("Fill") end
 end
-if bg then bg.ClipsDescendants = true end
 
--- Capture the original Y size of the Fill frame so we never overwrite it.
--- In BillboardGui, Scale Y = studs in 3D, so setting it to 1 would make
--- the fill much taller than the background. We only ever change X.
-local originalFillYScale  = fill and fill.Size.Y.Scale  or 1
-local originalFillYOffset = fill and fill.Size.Y.Offset or 0
+local gradient
+if fill then
+	gradient = fill:FindFirstChildWhichIsA("UIGradient")
+	if not gradient then
+		gradient = Instance.new("UIGradient")
+		gradient.Parent = fill
+	end
+end
 
 local function updateBar(hunger)
-	if not fill then return end
+	if not gradient then return end
 	local ratio = math.clamp(hunger / CFG.MAX_HUNGER, 0, 1)
-	fill.Size = UDim2.new(ratio, 0, originalFillYScale, originalFillYOffset)
+
+	if ratio <= 0 then
+		gradient.Transparency = NumberSequence.new(1)
+	elseif ratio >= 1 then
+		gradient.Transparency = NumberSequence.new(0)
+	else
+		gradient.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0),
+			NumberSequenceKeypoint.new(math.min(ratio, 0.999), 0),
+			NumberSequenceKeypoint.new(math.min(ratio + 0.001, 1), 1),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+	end
 end
 
 -- ========== VISUAL EFFECTS ==========
