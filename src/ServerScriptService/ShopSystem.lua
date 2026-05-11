@@ -38,12 +38,25 @@ local function createFoodTool(itemId)
 	return tool
 end
 
+-- ========== RATE LIMITING ==========
+local COOLDOWN = 1.0
+local MAX_FOOD_IN_BACKPACK = 5
+local lastPurchase = {} -- [UserId] = timestamp
+
 -- ========== PURCHASE HANDLER ==========
 shopRemote.OnServerEvent:Connect(function(player, action, itemId)
 	if action ~= "buy" then return end
 
 	local item = SHOP_ITEMS[itemId]
 	if not item then return end
+
+	-- Server-side cooldown
+	local now = tick()
+	local userId = player.UserId
+	if lastPurchase[userId] and (now - lastPurchase[userId]) < COOLDOWN then
+		return
+	end
+	lastPurchase[userId] = now
 
 	if item.price > 0 then
 		-- TODO: deduct currency when currency system exists
@@ -53,10 +66,24 @@ shopRemote.OnServerEvent:Connect(function(player, action, itemId)
 	local backpack = player:FindFirstChild("Backpack")
 	if not backpack then return end
 
+	-- Cap max food items in backpack
+	local count = 0
+	for _, child in ipairs(backpack:GetChildren()) do
+		if child:IsA("Tool") and SHOP_ITEMS[child.Name] then
+			count = count + 1
+		end
+	end
+	if count >= MAX_FOOD_IN_BACKPACK then return end
+
 	local tool = createFoodTool(itemId)
 	tool.Parent = backpack
 
 	shopRemote:FireClient(player, "purchased", itemId)
+end)
+
+-- Clean up cooldown data when player leaves
+game:GetService("Players").PlayerRemoving:Connect(function(player)
+	lastPurchase[player.UserId] = nil
 end)
 
 -- ========== PROXIMITY PROMPT ON SHOP PART ==========
