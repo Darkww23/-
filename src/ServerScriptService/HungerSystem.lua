@@ -238,7 +238,6 @@ RunService.Heartbeat:Connect(function()
 	if state ~= State.Eating then
 		hunger = math.max(0, hunger - CFG.DECAY_PER_SEC * dt)
 		updateBar(hunger)
-		publish()
 
 		-- Sync to clients at most once per second to avoid queue overflow
 		if now - lastRemoteSync >= 1.0 then
@@ -252,6 +251,7 @@ RunService.Heartbeat:Connect(function()
 			state = State.GoingToBowl
 			stateT = now; lastPath = 0; wps = nil; wpI = 0
 		end
+		publish()
 		return
 	end
 
@@ -306,15 +306,19 @@ RunService.Heartbeat:Connect(function()
 		if now - stateT > CFG.STUCK_TIMEOUT then
 			stateT = now; lastPath = 0; wps = nil
 		end
+		publish()
 		return
 	end
 
-	if state == State.Eating then return end
+	if state == State.Eating then publish() return end
 
 	if state == State.BowlEmpty then
 		if now - stateT >= 2.0 then state = State.Normal end
+		publish()
 		return
 	end
+
+	publish()
 end)
 
 zone.ChildAdded:Connect(function(child)
