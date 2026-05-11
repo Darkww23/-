@@ -15,8 +15,9 @@
 ]]
 
 -- ========== SERVICES ==========
-local RunService   = game:GetService("RunService")
-local PathService  = game:GetService("PathfindingService")
+local RunService        = game:GetService("RunService")
+local PathService       = game:GetService("PathfindingService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- ========== CONFIGURATION ==========
 local CFG = {
@@ -222,8 +223,22 @@ local function pickNewDestination()
 	end
 end
 
+-- ========== HUNGER INTEGRATION ==========
+local function isHungry()
+	local hungerState = ReplicatedStorage:FindFirstChild("HungerSystemState")
+	if hungerState and hungerState:IsA("BoolValue") then
+		return hungerState.Value
+	end
+	return false
+end
+
 local function onStep()
 	if tick() < pauseUntil then
+		return
+	end
+
+	-- Pause roaming while hungry (HungerSystem takes over movement)
+	if isHungry() then
 		return
 	end
 
