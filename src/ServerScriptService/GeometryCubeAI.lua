@@ -199,6 +199,12 @@ local State = {
 local currentState  = State.Idle
 local stateStart    = tick()
 
+-- Declared before switchState so it captures the correct local
+local currentWaypoints = nil
+local waypointIndex    = 0
+local targetPosition   = nil
+local pauseUntil       = 0
+
 local function switchState(newState)
 	currentState = newState
 	stateStart   = tick()
@@ -208,10 +214,6 @@ local function switchState(newState)
 end
 
 -- ========== MAIN BEHAVIOUR LOOP ==========
-local currentWaypoints = nil
-local waypointIndex    = 0
-local targetPosition   = nil
-local pauseUntil       = 0
 
 local function pickNewDestination()
 	targetPosition  = randomPointInZone()
@@ -257,11 +259,6 @@ local function onStep()
 		local pause = CFG.WAYPOINT_PAUSE_MIN
 			+ math.random() * (CFG.WAYPOINT_PAUSE_MAX - CFG.WAYPOINT_PAUSE_MIN)
 		pauseUntil = tick() + pause
-		return
-	end
-
-	-- Pick destination after pause expires (avoids counting pause in stuck timer)
-	if not targetPosition then
 		pickNewDestination()
 		return
 	end
