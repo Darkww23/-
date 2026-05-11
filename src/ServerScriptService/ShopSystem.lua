@@ -18,8 +18,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- ========== SHOP ITEMS ==========
 local SHOP_ITEMS = {
-	CubeFood        = { price = 25 },
-	CubeFoodPremium = { price = 100 },
+	CubeFood        = { price = 25,  type = "food" },
+	CubeFoodPremium = { price = 100, type = "food" },
+	OrbUpgrade      = { price = 50,  type = "upgrade" },
 }
 
 -- ========== REMOTE EVENT ==========
@@ -44,6 +45,35 @@ local COOLDOWN = 1.0
 local MAX_FOOD_IN_BACKPACK = 5
 local lastPurchase = {} -- [UserId] = timestamp
 
+-- ========== UPGRADE STATE ==========
+local playerUpgrades = {} -- [UserId] = { OrbUpgrade = true, ... }
+
+local function getOrbsPerClick(player)
+	local upgrades = playerUpgrades[player.UserId]
+	if upgrades and upgrades.OrbUpgrade then
+		return 2
+	end
+	return 1
+end
+
+-- Expose for OrbsSystem
+local UpgradeModule = ReplicatedStorage:FindFirstChild("OrbUpgradeState")
+if not UpgradeModule then
+	UpgradeModule = Instance.new("Folder")
+	UpgradeModule.Name = "OrbUpgradeState"
+	UpgradeModule.Parent = ReplicatedStorage
+end
+
+local function markUpgrade(player)
+	local flag = UpgradeModule:FindFirstChild(tostring(player.UserId))
+	if not flag then
+		flag = Instance.new("BoolValue")
+		flag.Name = tostring(player.UserId)
+		flag.Value = true
+		flag.Parent = UpgradeModule
+	end
+end
+
 -- ========== PURCHASE HANDLER ==========
 shopRemote.OnServerEvent:Connect(function(player, action, itemId)
 	if action ~= "buy" then return end
@@ -59,20 +89,48 @@ shopRemote.OnServerEvent:Connect(function(player, action, itemId)
 	end
 	lastPurchase[userId] = now
 
+	-- Upgrade items: no backpack needed, one-time purchase
+	if item.type == "upgrade" then
+		local upgrades = playerUpgrades[userId] or {}
+		if upgrades[itemId] then
+			shopRemote:FireClient(player, "alreadyOwned", itemId)
+			return
+		end
+
+		-- Deduct Orbs
+		local leaderstats = player:FindFirstChild("leaderstats")
+		if not leaderstats then return end
+		local orbsVal = leaderstats:FindFirstChild("Orbs")
+		if not orbsVal then return end
+		if orbsVal.Value < item.price then
+			shopRemote:FireClient(player, "noFunds", itemId)
+			return
+		end
+		orbsVal.Value = orbsVal.Value - item.price
+
+		upgrades[itemId] = true
+		playerUpgrades[userId] = upgrades
+		markUpgrade(player)
+
+		shopRemote:FireClient(player, "purchased", itemId)
+		return
+	end
+
+	-- Food items
 	local backpack = player:FindFirstChild("Backpack")
 	if not backpack then return end
 
 	-- Cap max food items (backpack + equipped)
 	local count = 0
 	for _, child in ipairs(backpack:GetChildren()) do
-		if child:IsA("Tool") and SHOP_ITEMS[child.Name] then
+		if child:IsA("Tool") and SHOP_ITEMS[child.Name] and SHOP_ITEMS[child.Name].type == "food" then
 			count = count + 1
 		end
 	end
 	local character = player.Character
 	if character then
 		for _, child in ipairs(character:GetChildren()) do
-			if child:IsA("Tool") and SHOP_ITEMS[child.Name] then
+			if child:IsA("Tool") and SHOP_ITEMS[child.Name] and SHOP_ITEMS[child.Name].type == "food" then
 				count = count + 1
 			end
 		end
@@ -100,7 +158,11 @@ end)
 
 -- Clean up cooldown data when player leaves
 game:GetService("Players").PlayerRemoving:Connect(function(player)
-	lastPurchase[player.UserId] = nil
+	local userId = player.UserId
+	lastPurchase[userId] = nil
+	playerUpgrades[userId] = nil
+	local flag = UpgradeModule:FindFirstChild(tostring(userId))
+	if flag then flag:Destroy() end
 end)
 
 -- ========== PROXIMITY PROMPT ON SHOP PART ==========

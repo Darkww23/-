@@ -20,6 +20,14 @@ local CFG = {
 	ORB_COUNT       = 3,
 }
 
+local function getOrbsForPlayer(player)
+	local upgradeFolder = ReplicatedStorage:FindFirstChild("OrbUpgradeState")
+	if upgradeFolder and upgradeFolder:FindFirstChild(tostring(player.UserId)) then
+		return 2
+	end
+	return CFG.ORBS_PER_CLICK
+end
+
 -- ========== LEADERSTATS ==========
 Players.PlayerAdded:Connect(function(player)
 	local leaderstats = Instance.new("Folder")
@@ -77,7 +85,8 @@ local function setupClickDetector()
 				local orbsVal = leaderstats:FindFirstChild("Orbs")
 				if not orbsVal then return end
 
-				orbsVal.Value = orbsVal.Value + CFG.ORBS_PER_CLICK
+				local amount = getOrbsForPlayer(player)
+				orbsVal.Value = orbsVal.Value + amount
 
 				-- Tell client to show orb visual
 				orbRemote:FireClient(player, rootPart.Position, CFG.ORB_COUNT)
@@ -113,7 +122,8 @@ cubeModel.DescendantAdded:Connect(function(desc)
 				local orbsVal = leaderstats:FindFirstChild("Orbs")
 				if not orbsVal then return end
 
-				orbsVal.Value = orbsVal.Value + CFG.ORBS_PER_CLICK
+				local amount = getOrbsForPlayer(player)
+				orbsVal.Value = orbsVal.Value + amount
 				orbRemote:FireClient(player, rootPart.Position, CFG.ORB_COUNT)
 			end)
 		end)
