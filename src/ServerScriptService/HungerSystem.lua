@@ -245,6 +245,7 @@ end
 
 -- ========== HEARTBEAT ==========
 local lastT = tick()
+local lastRemoteSync = 0
 
 RunService.Heartbeat:Connect(function()
 	local now = tick()
@@ -255,7 +256,12 @@ RunService.Heartbeat:Connect(function()
 		hunger = math.max(0, hunger - CFG.DECAY_PER_SEC * dt)
 		updateBar(hunger)
 		publish()
-		hungerRemote:FireAllClients(hunger, CFG.MAX_HUNGER)
+
+		-- Sync to clients at most once per second to avoid queue overflow
+		if now - lastRemoteSync >= 1.0 then
+			lastRemoteSync = now
+			hungerRemote:FireAllClients(hunger, CFG.MAX_HUNGER)
+		end
 	end
 
 	if state == State.Normal then
