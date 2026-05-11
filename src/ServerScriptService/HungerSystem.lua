@@ -4,7 +4,7 @@
 
 	• Hunger decays over time; the bar only shrinks (no color/position changes)
 	• Player fills the bowl with one click (ProximityPrompt) using food from Backpack
-	• Visual effects: uses FoodBowl → FoodBowlEffects ParticleEmitter
+	• Visual effects: FoodBowlEffects particles + FoodBowlVisual food appearance
 	• Empty bowl — cube walks away hungry
 
 	workspace layout:
@@ -99,6 +99,23 @@ local function playBowlEffect(bowl)
 	end
 end
 
+-- FoodBowlVisual: a part inside FoodBowl that represents food visually.
+-- Shown when bowl is filled, hidden when cube finishes eating.
+local function showBowlFood(bowl, visible)
+	local visual = bowl:FindFirstChild("FoodBowlVisual")
+	if not visual then return end
+
+	if visual:IsA("BasePart") then
+		visual.Transparency = visible and 0 or 1
+	elseif visual:IsA("Model") then
+		for _, part in ipairs(visual:GetDescendants()) do
+			if part:IsA("BasePart") then
+				part.Transparency = visible and 0 or 1
+			end
+		end
+	end
+end
+
 -- ========== FOOD BOWL ==========
 local bowlFull = false
 
@@ -168,6 +185,7 @@ local function setupPrompt(b)
 		bowlFull = true
 		prompt.Enabled = false
 
+		showBowlFood(b, true)
 		playBowlEffect(b)
 
 		local remote = ReplicatedStorage:FindFirstChild("BowlNotification")
@@ -283,6 +301,7 @@ RunService.Heartbeat:Connect(function()
 			task.delay(CFG.EAT_DURATION, function()
 				hunger = math.clamp(hunger + CFG.EAT_RESTORE, 0, CFG.MAX_HUNGER)
 				updateBar(hunger)
+				showBowlFood(bowl, false)
 				state = State.Normal
 				publish()
 			end)
