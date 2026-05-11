@@ -236,7 +236,13 @@ RunService.Heartbeat:Connect(function()
 	lastT = now
 
 	if state ~= State.Eating then
-		hunger = math.max(0, hunger - CFG.DECAY_PER_SEC * dt)
+		-- HungerUpgrade: halve decay if any player owns the upgrade
+		local decayRate = CFG.DECAY_PER_SEC
+		local hungerUpFolder = ReplicatedStorage:FindFirstChild("HungerUpgradeState")
+		if hungerUpFolder and #hungerUpFolder:GetChildren() > 0 then
+			decayRate = decayRate * 0.5
+		end
+		hunger = math.max(0, hunger - decayRate * dt)
 		updateBar(hunger)
 
 		-- Sync to clients at most once per second to avoid queue overflow

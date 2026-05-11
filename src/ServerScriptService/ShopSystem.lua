@@ -21,6 +21,7 @@ local SHOP_ITEMS = {
 	CubeFood        = { price = 25,  type = "food" },
 	CubeFoodPremium = { price = 100, type = "food" },
 	OrbUpgrade      = { price = 50,  type = "upgrade" },
+	HungerUpgrade   = { price = 75,  type = "upgrade" },
 }
 
 -- ========== REMOTE EVENT ==========
@@ -56,7 +57,7 @@ local function getOrbsPerClick(player)
 	return 1
 end
 
--- Expose for OrbsSystem
+-- Expose upgrade state for other systems (OrbsSystem, HungerSystem)
 local UpgradeModule = ReplicatedStorage:FindFirstChild("OrbUpgradeState")
 if not UpgradeModule then
 	UpgradeModule = Instance.new("Folder")
@@ -64,13 +65,30 @@ if not UpgradeModule then
 	UpgradeModule.Parent = ReplicatedStorage
 end
 
-local function markUpgrade(player)
-	local flag = UpgradeModule:FindFirstChild(tostring(player.UserId))
-	if not flag then
-		flag = Instance.new("BoolValue")
-		flag.Name = tostring(player.UserId)
-		flag.Value = true
-		flag.Parent = UpgradeModule
+local HungerUpgradeModule = ReplicatedStorage:FindFirstChild("HungerUpgradeState")
+if not HungerUpgradeModule then
+	HungerUpgradeModule = Instance.new("Folder")
+	HungerUpgradeModule.Name = "HungerUpgradeState"
+	HungerUpgradeModule.Parent = ReplicatedStorage
+end
+
+local function markUpgrade(player, itemId)
+	if itemId == "OrbUpgrade" then
+		local flag = UpgradeModule:FindFirstChild(tostring(player.UserId))
+		if not flag then
+			flag = Instance.new("BoolValue")
+			flag.Name = tostring(player.UserId)
+			flag.Value = true
+			flag.Parent = UpgradeModule
+		end
+	elseif itemId == "HungerUpgrade" then
+		local flag = HungerUpgradeModule:FindFirstChild(tostring(player.UserId))
+		if not flag then
+			flag = Instance.new("BoolValue")
+			flag.Name = tostring(player.UserId)
+			flag.Value = true
+			flag.Parent = HungerUpgradeModule
+		end
 	end
 end
 
@@ -110,7 +128,7 @@ shopRemote.OnServerEvent:Connect(function(player, action, itemId)
 
 		upgrades[itemId] = true
 		playerUpgrades[userId] = upgrades
-		markUpgrade(player)
+		markUpgrade(player, itemId)
 
 		shopRemote:FireClient(player, "purchased", itemId)
 		return
@@ -163,6 +181,8 @@ game:GetService("Players").PlayerRemoving:Connect(function(player)
 	playerUpgrades[userId] = nil
 	local flag = UpgradeModule:FindFirstChild(tostring(userId))
 	if flag then flag:Destroy() end
+	local hFlag = HungerUpgradeModule:FindFirstChild(tostring(userId))
+	if hFlag then hFlag:Destroy() end
 end)
 
 -- ========== PROXIMITY PROMPT ON SHOP PART ==========
