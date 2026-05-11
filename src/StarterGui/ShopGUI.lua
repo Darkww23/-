@@ -108,7 +108,7 @@ shopRemote.OnClientEvent:Connect(function(action, data)
 		local btn = buttonMap[data]
 		flashButton(btn, true)
 		if data == "OrbUpgrade" and btn then
-			task.delay(0.9, function()
+			task.delay(0.8, function()
 				btn.Text = "Owned"
 				btn.Active = false
 			end)

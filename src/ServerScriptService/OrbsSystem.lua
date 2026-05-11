@@ -23,7 +23,7 @@ local CFG = {
 local function getOrbsForPlayer(player)
 	local upgradeFolder = ReplicatedStorage:FindFirstChild("OrbUpgradeState")
 	if upgradeFolder and upgradeFolder:FindFirstChild(tostring(player.UserId)) then
-		return 2
+		return CFG.ORBS_PER_CLICK * 2
 	end
 	return CFG.ORBS_PER_CLICK
 end
