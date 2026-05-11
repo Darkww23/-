@@ -4,7 +4,7 @@
 
 	• Hunger decays over time; the bar only shrinks (no color/position changes)
 	• Player fills the bowl with one click (ProximityPrompt) using food from Backpack
-	• Visual effects: particles on bowl fill + cube eating sparkles
+	• Visual effects: uses FoodBowl → FoodBowlEffects ParticleEmitter
 	• Empty bowl — cube walks away hungry
 
 	workspace layout:
@@ -86,34 +86,17 @@ local function updateBar(hunger)
 end
 
 -- ========== VISUAL EFFECTS ==========
-local function spawnParticles(part, color, duration)
-	local att = Instance.new("Attachment")
-	att.Parent = part
+-- Uses the player's own ParticleEmitter inside FoodBowl → FoodBowlEffects
+local function playBowlEffect(bowl)
+	local effectsPart = bowl:FindFirstChild("FoodBowlEffects")
+	if not effectsPart then return end
 
-	local emitter = Instance.new("ParticleEmitter")
-	emitter.Color = ColorSequence.new(color)
-	emitter.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.5),
-		NumberSequenceKeypoint.new(1, 0),
-	})
-	emitter.Lifetime = NumberRange.new(0.4, 0.8)
-	emitter.Rate = 40
-	emitter.Speed = NumberRange.new(3, 6)
-	emitter.SpreadAngle = Vector2.new(180, 180)
-	emitter.Parent = att
-
-	task.delay(duration, function()
-		emitter.Enabled = false
-		task.delay(1, function() att:Destroy() end)
-	end)
-end
-
-local function bowlFillEffect(part)
-	spawnParticles(part, Color3.fromRGB(255, 200, 50), 0.8)
-end
-
-local function cubeEatEffect()
-	spawnParticles(root, Color3.fromRGB(100, 255, 100), CFG.EAT_DURATION)
+	for _, emitter in ipairs(effectsPart:GetDescendants()) do
+		if emitter:IsA("ParticleEmitter") then
+			emitter.Enabled = true
+			task.delay(1.5, function() emitter.Enabled = false end)
+		end
+	end
 end
 
 -- ========== FOOD BOWL ==========
@@ -185,7 +168,7 @@ local function setupPrompt(b)
 		bowlFull = true
 		prompt.Enabled = false
 
-		bowlFillEffect(part)
+		playBowlEffect(b)
 
 		local remote = ReplicatedStorage:FindFirstChild("BowlNotification")
 		if remote then
@@ -288,7 +271,7 @@ RunService.Heartbeat:Connect(function()
 			bowlFull = false
 			state = State.Eating; stateT = now
 			hum:MoveTo(root.Position)
-			cubeEatEffect()
+			playBowlEffect(bowl)
 
 			local part = getBowlPart(bowl)
 			if part then
