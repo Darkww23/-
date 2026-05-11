@@ -56,9 +56,16 @@ if barGui then
 end
 if bg then bg.ClipsDescendants = true end
 
+-- Capture the original Y size of the Fill frame so we never overwrite it.
+-- In BillboardGui, Scale Y = studs in 3D, so setting it to 1 would make
+-- the fill much taller than the background. We only ever change X.
+local originalFillYScale  = fill and fill.Size.Y.Scale  or 1
+local originalFillYOffset = fill and fill.Size.Y.Offset or 0
+
 local function updateBar(hunger)
 	if not fill then return end
-	fill.Size = UDim2.new(math.clamp(hunger / CFG.MAX_HUNGER, 0, 1), 0, 1, 0)
+	local ratio = math.clamp(hunger / CFG.MAX_HUNGER, 0, 1)
+	fill.Size = UDim2.new(ratio, 0, originalFillYScale, originalFillYOffset)
 end
 
 -- ========== VISUAL EFFECTS ==========
