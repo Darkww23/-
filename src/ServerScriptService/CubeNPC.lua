@@ -205,6 +205,21 @@ local function moveToDestination(model: Model, destination: Vector3): boolean
 			return false
 		end
 
+		-- Ожидаем, пока куб достигнет точки или истечёт время ожидания (3 сек на точку)
+		local waypointReached = false
+		local waypointStartTime = tick()
+		local maxWaypointTime = 3 -- максимум 3 секунды на одну точку
+
+		-- Подписываемся на событие MoveToFinished ДО вызова MoveTo,
+		-- чтобы перехватить ложный MoveToFinished(false) от отмены предыдущего MoveTo
+		local moveFinishedConnection
+		moveFinishedConnection = humanoid.MoveToFinished:Connect(function(reached: boolean)
+			if reached then
+				waypointReached = true
+			end
+			moveFinishedConnection:Disconnect()
+		end)
+
 		-- Если точка маршрута требует прыжка (например, ступенька или низкий объект)
 		if waypoint.Action == Enum.PathWaypointAction.Jump then
 			humanoid.Jump = true
@@ -212,18 +227,6 @@ local function moveToDestination(model: Model, destination: Vector3): boolean
 
 		-- Двигаем куб к следующей точке маршрута
 		humanoid:MoveTo(waypoint.Position)
-
-		-- Ожидаем, пока куб достигнет точки или истечёт время ожидания (3 сек на точку)
-		local waypointReached = false
-		local waypointStartTime = tick()
-		local maxWaypointTime = 3 -- максимум 3 секунды на одну точку
-
-		-- Подписываемся на событие MoveToFinished
-		local moveFinishedConnection
-		moveFinishedConnection = humanoid.MoveToFinished:Connect(function(reached: boolean)
-			waypointReached = true
-			moveFinishedConnection:Disconnect()
-		end)
 
 		-- Ждём завершения движения к точке с проверкой таймаута
 		while not waypointReached do
