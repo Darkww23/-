@@ -113,7 +113,7 @@ local function detectObstacleAhead(): boolean
 
 	if result then
 		-- Check if the obstacle is low enough to jump over
-		local hitTop = result.Position.Y + (result.Instance.Size.Y / 2)
+		local hitTop = result.Instance.Position.Y + (result.Instance.Size.Y / 2)
 		local npcFeet = origin.Y - (rootPart.Size.Y / 2)
 		local wallHeight = hitTop - npcFeet
 
@@ -241,14 +241,9 @@ local function navigationLoop()
 				local reached = followPath(trimmedWaypoints)
 				blockedConnection:Disconnect()
 
-				if reached then
+				if reached and not blocked then
 					consecutiveFailures = 0
 				else
-					consecutiveFailures += 1
-				end
-
-				if blocked then
-					-- Path was blocked mid-traversal — immediately recalculate
 					consecutiveFailures += 1
 				end
 			end
