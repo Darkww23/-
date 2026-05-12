@@ -1,0 +1,217 @@
+--[[
+	ShopSystem.lua
+	Shop system for "Raise a Geometry Cube".
+
+	• ProximityPrompt on ShopPart opens the player's CubeShopGui
+	• Player clicks PurchaseBasicFood → server gives CubeFood Tool
+	• Easily extendable: add items to SHOP_ITEMS table
+
+	Expected workspace layout:
+	  workspace
+	    └─ ShopPart (BasePart — ProximityPrompt auto-created)
+
+	Place in ServerScriptService.
+]]
+
+local Players           = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- ========== SHOP ITEMS ==========
+local SHOP_ITEMS = {
+	CubeFood        = { price = 25,  type = "food" },
+	CubeFoodPremium = { price = 100, type = "food" },
+	OrbUpgrade      = { price = 50,  type = "upgrade" },
+	HungerUpgrade   = { price = 75,  type = "upgrade" },
+}
+
+-- ========== REMOTE EVENT ==========
+local shopRemote = ReplicatedStorage:FindFirstChild("ShopRemote")
+if not shopRemote then
+	shopRemote = Instance.new("RemoteEvent")
+	shopRemote.Name = "ShopRemote"
+	shopRemote.Parent = ReplicatedStorage
+end
+
+-- ========== TOOL CREATION ==========
+local function createFoodTool(itemId)
+	local tool = Instance.new("Tool")
+	tool.Name = itemId
+	tool.CanBeDropped = false
+	tool.RequiresHandle = false
+	return tool
+end
+
+-- ========== RATE LIMITING ==========
+local COOLDOWN = 1.0
+local MAX_FOOD_IN_BACKPACK = 5
+local lastPurchase = {} -- [UserId] = timestamp
+
+-- ========== UPGRADE STATE ==========
+local playerUpgrades = {} -- [UserId] = { OrbUpgrade = true, ... }
+
+local function getOrbsPerClick(player)
+	local upgrades = playerUpgrades[player.UserId]
+	if upgrades and upgrades.OrbUpgrade then
+		return 2
+	end
+	return 1
+end
+
+-- Expose upgrade state for other systems (OrbsSystem, HungerSystem)
+local UpgradeModule = ReplicatedStorage:FindFirstChild("OrbUpgradeState")
+if not UpgradeModule then
+	UpgradeModule = Instance.new("Folder")
+	UpgradeModule.Name = "OrbUpgradeState"
+	UpgradeModule.Parent = ReplicatedStorage
+end
+
+local HungerUpgradeModule = ReplicatedStorage:FindFirstChild("HungerUpgradeState")
+if not HungerUpgradeModule then
+	HungerUpgradeModule = Instance.new("Folder")
+	HungerUpgradeModule.Name = "HungerUpgradeState"
+	HungerUpgradeModule.Parent = ReplicatedStorage
+end
+
+local function markUpgrade(player, itemId)
+	if itemId == "OrbUpgrade" then
+		local flag = UpgradeModule:FindFirstChild(tostring(player.UserId))
+		if not flag then
+			flag = Instance.new("BoolValue")
+			flag.Name = tostring(player.UserId)
+			flag.Value = true
+			flag.Parent = UpgradeModule
+		end
+	elseif itemId == "HungerUpgrade" then
+		local flag = HungerUpgradeModule:FindFirstChild(tostring(player.UserId))
+		if not flag then
+			flag = Instance.new("BoolValue")
+			flag.Name = tostring(player.UserId)
+			flag.Value = true
+			flag.Parent = HungerUpgradeModule
+		end
+	end
+end
+
+-- ========== PURCHASE HANDLER ==========
+shopRemote.OnServerEvent:Connect(function(player, action, itemId)
+	if action ~= "buy" then return end
+
+	local item = SHOP_ITEMS[itemId]
+	if not item then return end
+
+	-- Server-side cooldown
+	local now = tick()
+	local userId = player.UserId
+	if lastPurchase[userId] and (now - lastPurchase[userId]) < COOLDOWN then
+		return
+	end
+	lastPurchase[userId] = now
+
+	-- Upgrade items: no backpack needed, one-time purchase
+	if item.type == "upgrade" then
+		local upgrades = playerUpgrades[userId] or {}
+		if upgrades[itemId] then
+			shopRemote:FireClient(player, "alreadyOwned", itemId)
+			return
+		end
+
+		-- Deduct Orbs
+		local leaderstats = player:FindFirstChild("leaderstats")
+		if not leaderstats then return end
+		local orbsVal = leaderstats:FindFirstChild("Orbs")
+		if not orbsVal then return end
+		if orbsVal.Value < item.price then
+			shopRemote:FireClient(player, "noFunds", itemId)
+			return
+		end
+		orbsVal.Value = orbsVal.Value - item.price
+
+		upgrades[itemId] = true
+		playerUpgrades[userId] = upgrades
+		markUpgrade(player, itemId)
+
+		shopRemote:FireClient(player, "purchased", itemId)
+		return
+	end
+
+	-- Food items
+	local backpack = player:FindFirstChild("Backpack")
+	if not backpack then return end
+
+	-- Cap max food items (backpack + equipped)
+	local count = 0
+	for _, child in ipairs(backpack:GetChildren()) do
+		if child:IsA("Tool") and SHOP_ITEMS[child.Name] and SHOP_ITEMS[child.Name].type == "food" then
+			count = count + 1
+		end
+	end
+	local character = player.Character
+	if character then
+		for _, child in ipairs(character:GetChildren()) do
+			if child:IsA("Tool") and SHOP_ITEMS[child.Name] and SHOP_ITEMS[child.Name].type == "food" then
+				count = count + 1
+			end
+		end
+	end
+	if count >= MAX_FOOD_IN_BACKPACK then return end
+
+	-- Deduct Orbs (after all validation passes)
+	if item.price > 0 then
+		local leaderstats = player:FindFirstChild("leaderstats")
+		if not leaderstats then return end
+		local orbsVal = leaderstats:FindFirstChild("Orbs")
+		if not orbsVal then return end
+		if orbsVal.Value < item.price then
+			shopRemote:FireClient(player, "noFunds", itemId)
+			return
+		end
+		orbsVal.Value = orbsVal.Value - item.price
+	end
+
+	local tool = createFoodTool(itemId)
+	tool.Parent = backpack
+
+	shopRemote:FireClient(player, "purchased", itemId)
+end)
+
+-- Clean up cooldown data when player leaves
+game:GetService("Players").PlayerRemoving:Connect(function(player)
+	local userId = player.UserId
+	lastPurchase[userId] = nil
+	playerUpgrades[userId] = nil
+	local flag = UpgradeModule:FindFirstChild(tostring(userId))
+	if flag then flag:Destroy() end
+	local hFlag = HungerUpgradeModule:FindFirstChild(tostring(userId))
+	if hFlag then hFlag:Destroy() end
+end)
+
+-- ========== PROXIMITY PROMPT ON SHOP PART ==========
+local function setupShopPrompt(shopPart)
+	local prompt = shopPart:FindFirstChildWhichIsA("ProximityPrompt")
+	if not prompt then
+		prompt = Instance.new("ProximityPrompt")
+		prompt.ObjectText = "Shop"
+		prompt.ActionText = "Open Shop"
+		prompt.HoldDuration = 0
+		prompt.MaxActivationDistance = 10
+		prompt.RequiresLineOfSight = false
+		prompt.Parent = shopPart
+	end
+
+	prompt.Triggered:Connect(function(player)
+		shopRemote:FireClient(player, "open")
+	end)
+end
+
+local shopPart = workspace:FindFirstChild("ShopPart")
+if shopPart then
+	setupShopPrompt(shopPart)
+else
+	workspace.ChildAdded:Connect(function(child)
+		if child.Name == "ShopPart" then
+			setupShopPrompt(child)
+		end
+	end)
+end
+
+print("[Shop] Shop system started.")

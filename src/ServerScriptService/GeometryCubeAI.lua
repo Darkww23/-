@@ -199,16 +199,21 @@ local State = {
 local currentState  = State.Idle
 local stateStart    = tick()
 
-local function switchState(newState)
-	currentState = newState
-	stateStart   = tick()
-end
-
--- ========== MAIN BEHAVIOUR LOOP ==========
+-- Declared before switchState so it captures the correct local
 local currentWaypoints = nil
 local waypointIndex    = 0
 local targetPosition   = nil
 local pauseUntil       = 0
+
+local function switchState(newState)
+	currentState = newState
+	stateStart   = tick()
+	if newState == State.Idle then
+		targetPosition = nil
+	end
+end
+
+-- ========== MAIN BEHAVIOUR LOOP ==========
 
 local function pickNewDestination()
 	targetPosition  = randomPointInZone()
@@ -344,12 +349,13 @@ local function onStep()
 end
 
 -- ========== CONNECT HEARTBEAT ==========
-RunService.Heartbeat:Connect(onStep)
+local heartbeatConn = RunService.Heartbeat:Connect(onStep)
 
 -- Handle the cube being destroyed
 cubeModel.AncestryChanged:Connect(function(_, parent)
 	if not parent then
 		warn("[GeometryCubeAI] GeometryCube was removed — stopping AI.")
+		heartbeatConn:Disconnect()
 	end
 end)
 

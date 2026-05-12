@@ -99,16 +99,15 @@ local function playBowlEffect(bowl)
 	end
 end
 
--- FoodBowlVisual: a part inside FoodBowl that represents food visually.
--- Shown when bowl is filled, hidden when cube finishes eating.
-local function showBowlFood(bowl, visible)
-	local visual = bowl:FindFirstChild("FoodBowlVisual")
-	if not visual then return end
+-- ========== FOOD BOWL VISUAL ==========
+local function showBowlVisual(bowl, visible)
+	local vis = bowl:FindFirstChild("FoodBowlVisual")
+	if not vis then return end
 
-	if visual:IsA("BasePart") then
-		visual.Transparency = visible and 0 or 1
-	elseif visual:IsA("Model") then
-		for _, part in ipairs(visual:GetDescendants()) do
+	if vis:IsA("BasePart") then
+		vis.Transparency = visible and 0 or 1
+	elseif vis:IsA("Model") then
+		for _, part in ipairs(vis:GetDescendants()) do
 			if part:IsA("BasePart") then
 				part.Transparency = visible and 0 or 1
 			end
@@ -181,11 +180,13 @@ local function setupPrompt(b)
 			return
 		end
 
+		-- Move tool to nil parent first to force unequip, then destroy
+		foodTool.Parent = nil
 		foodTool:Destroy()
 		bowlFull = true
 		prompt.Enabled = false
 
-		showBowlFood(b, true)
+		showBowlVisual(b, true)
 		playBowlEffect(b)
 
 		local remote = ReplicatedStorage:FindFirstChild("BowlNotification")
@@ -254,7 +255,13 @@ RunService.Heartbeat:Connect(function()
 	lastT = now
 
 	if state ~= State.Eating then
-		hunger = math.max(0, hunger - CFG.DECAY_PER_SEC * dt)
+		-- HungerUpgrade: halve decay if any player owns the upgrade
+		local decayRate = CFG.DECAY_PER_SEC
+		local hungerUpFolder = ReplicatedStorage:FindFirstChild("HungerUpgradeState")
+		if hungerUpFolder and #hungerUpFolder:GetChildren() > 0 then
+			decayRate = decayRate * 0.5
+		end
+		hunger = math.max(0, hunger - decayRate * dt)
 		updateBar(hunger)
 
 		-- Sync to clients at most once per second to avoid queue overflow
@@ -290,6 +297,7 @@ RunService.Heartbeat:Connect(function()
 			bowlFull = false
 			state = State.Eating; stateT = now
 			hum:MoveTo(root.Position)
+			showBowlVisual(bowl, false)
 			playBowlEffect(bowl)
 
 			local part = getBowlPart(bowl)
@@ -301,7 +309,7 @@ RunService.Heartbeat:Connect(function()
 			task.delay(CFG.EAT_DURATION, function()
 				hunger = math.clamp(hunger + CFG.EAT_RESTORE, 0, CFG.MAX_HUNGER)
 				updateBar(hunger)
-				if not bowlFull then showBowlFood(bowl, false) end
+				if not bowlFull then showBowlVisual(bowl, false) end
 				state = State.Normal
 				publish()
 			end)
