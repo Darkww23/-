@@ -99,6 +99,22 @@ local function playBowlEffect(bowl)
 	end
 end
 
+-- ========== FOOD BOWL VISUAL ==========
+local function showBowlVisual(bowl, visible)
+	local vis = bowl:FindFirstChild("FoodBowlVisual")
+	if not vis then return end
+
+	if vis:IsA("BasePart") then
+		vis.Transparency = visible and 0 or 1
+	elseif vis:IsA("Model") then
+		for _, part in ipairs(vis:GetDescendants()) do
+			if part:IsA("BasePart") then
+				part.Transparency = visible and 0 or 1
+			end
+		end
+	end
+end
+
 -- ========== FOOD BOWL ==========
 local bowlFull = false
 
@@ -164,10 +180,13 @@ local function setupPrompt(b)
 			return
 		end
 
+		-- Move tool to nil parent first to force unequip, then destroy
+		foodTool.Parent = nil
 		foodTool:Destroy()
 		bowlFull = true
 		prompt.Enabled = false
 
+		showBowlVisual(b, true)
 		playBowlEffect(b)
 
 		local remote = ReplicatedStorage:FindFirstChild("BowlNotification")
@@ -278,6 +297,7 @@ RunService.Heartbeat:Connect(function()
 			bowlFull = false
 			state = State.Eating; stateT = now
 			hum:MoveTo(root.Position)
+			showBowlVisual(bowl, false)
 			playBowlEffect(bowl)
 
 			local part = getBowlPart(bowl)
