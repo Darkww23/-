@@ -237,9 +237,17 @@ local function isHungry()
 	return false
 end
 
+local pauseJustEnded = false
+
 local function onStep()
 	if tick() < pauseUntil then
+		pauseJustEnded = true
 		return
+	end
+
+	if pauseJustEnded then
+		pauseJustEnded = false
+		stateStart = tick()
 	end
 
 	-- Pause roaming while hungry (HungerSystem takes over movement)
