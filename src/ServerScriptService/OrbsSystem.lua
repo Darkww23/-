@@ -86,11 +86,13 @@ local function spawnOrb(origin, orbValue)
 	orb.Parent = workspace
 
 	-- Launch upward with random spread
-	local launchDir = Vector3.new(
+	local horizontal = Vector3.new(
 		math.random(-10, 10) / 10,
 		0,
 		math.random(-10, 10) / 10
-	).Unit * CFG.ORB_LAUNCH_FORCE + Vector3.new(0, CFG.ORB_UP_FORCE, 0)
+	)
+	local launchDir = (horizontal.Magnitude > 0 and horizontal.Unit * CFG.ORB_LAUNCH_FORCE or Vector3.zero)
+		+ Vector3.new(0, CFG.ORB_UP_FORCE, 0)
 	primaryPart:ApplyImpulse(launchDir * primaryPart.AssemblyMass)
 
 	-- Touch detection for collection
@@ -143,11 +145,13 @@ local function onCubeClicked(player)
 	lastClick[userId] = now
 
 	local amount = getOrbsForPlayer(player)
-	local perOrb = amount / CFG.ORB_SPAWN_COUNT
+	local base = math.floor(amount / CFG.ORB_SPAWN_COUNT)
+	local remainder = amount - base * (CFG.ORB_SPAWN_COUNT - 1)
 
 	for i = 1, CFG.ORB_SPAWN_COUNT do
+		local value = (i == CFG.ORB_SPAWN_COUNT) and remainder or base
 		task.delay((i - 1) * 0.1, function()
-			spawnOrb(rootPart.Position, perOrb)
+			spawnOrb(rootPart.Position, value)
 		end)
 	end
 end
