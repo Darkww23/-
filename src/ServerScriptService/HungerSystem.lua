@@ -4,7 +4,7 @@
 
 	• Hunger decays over time; the bar only shrinks (no color/position changes)
 	• Player fills the bowl with one click (ProximityPrompt) using food from Backpack
-	• Visual effects: uses FoodBowl → FoodBowlEffects ParticleEmitter
+	• Visual effects: FoodBowlEffects particles + FoodBowlVisual food appearance
 	• Empty bowl — cube walks away hungry
 
 	workspace layout:
@@ -309,6 +309,7 @@ RunService.Heartbeat:Connect(function()
 			task.delay(CFG.EAT_DURATION, function()
 				hunger = math.clamp(hunger + CFG.EAT_RESTORE, 0, CFG.MAX_HUNGER)
 				updateBar(hunger)
+				if not bowlFull then showBowlVisual(bowl, false) end
 				state = State.Normal
 				publish()
 			end)
