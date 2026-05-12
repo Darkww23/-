@@ -78,8 +78,8 @@ local function updateBar(hunger)
 	else
 		gradient.Transparency = NumberSequence.new({
 			NumberSequenceKeypoint.new(0, 0),
-			NumberSequenceKeypoint.new(math.min(ratio, 0.999), 0),
-			NumberSequenceKeypoint.new(math.min(ratio + 0.001, 1), 1),
+			NumberSequenceKeypoint.new(math.min(ratio, 0.998), 0),
+			NumberSequenceKeypoint.new(math.min(ratio + 0.001, 0.999), 1),
 			NumberSequenceKeypoint.new(1, 1),
 		})
 	end
@@ -249,7 +249,7 @@ end
 local lastT = tick()
 local lastRemoteSync = 0
 
-RunService.Heartbeat:Connect(function()
+local heartbeatConn = RunService.Heartbeat:Connect(function()
 	local now = tick()
 	local dt  = now - lastT
 	lastT = now
@@ -349,8 +349,16 @@ RunService.Heartbeat:Connect(function()
 	publish()
 end)
 
-zone.ChildAdded:Connect(function(child)
+local childAddedConn = zone.ChildAdded:Connect(function(child)
 	if child.Name == "FoodBowl" then setupPrompt(child) end
+end)
+
+cube.AncestryChanged:Connect(function(_, parent)
+	if not parent then
+		warn("[Hunger] GeometryCube was removed — stopping hunger system.")
+		heartbeatConn:Disconnect()
+		childAddedConn:Disconnect()
+	end
 end)
 
 print("[Hunger] Started. Decay:", CFG.DECAY_PER_SEC, "/s")
