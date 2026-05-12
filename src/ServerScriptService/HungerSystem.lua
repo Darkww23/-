@@ -227,6 +227,7 @@ end
 
 -- ========== STATE ==========
 local hunger = CFG.MAX_HUNGER
+local alive  = true
 local State  = { Normal = 1, GoingToBowl = 2, Eating = 3, BowlEmpty = 4 }
 local state  = State.Normal
 local stateT = tick()
@@ -245,11 +246,34 @@ local function publish()
 	flag:SetAttribute("Hunger", hunger)
 end
 
+-- ========== DEATH ==========
+local function onCubeDeath()
+	if not alive then return end
+	alive = false
+
+	updateBar(0)
+
+	local explosion = Instance.new("Explosion")
+	explosion.Position = root.Position
+	explosion.BlastRadius = 16
+	explosion.BlastPressure = 500000
+	explosion.DestroyJointRadiusPercent = 1
+	explosion.Parent = workspace
+
+	cube:Destroy()
+
+	for _, plr in ipairs(Players:GetPlayers()) do
+		plr:Kick("GeometryCube умер от голода 💀")
+	end
+end
+
 -- ========== HEARTBEAT ==========
 local lastT = tick()
 local lastRemoteSync = 0
 
 local heartbeatConn = RunService.Heartbeat:Connect(function()
+	if not alive then return end
+
 	local now = tick()
 	local dt  = now - lastT
 	lastT = now
@@ -263,6 +287,11 @@ local heartbeatConn = RunService.Heartbeat:Connect(function()
 		end
 		hunger = math.max(0, hunger - decayRate * dt)
 		updateBar(hunger)
+
+		if hunger <= 0 then
+			onCubeDeath()
+			return
+		end
 
 		-- Sync to clients at most once per second to avoid queue overflow
 		if now - lastRemoteSync >= 1.0 then
