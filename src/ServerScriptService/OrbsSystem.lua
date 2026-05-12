@@ -144,14 +144,11 @@ local function onCubeClicked(player)
 	end
 	lastClick[userId] = now
 
-	local amount = getOrbsForPlayer(player)
-	local base = math.floor(amount / CFG.ORB_SPAWN_COUNT)
-	local remainder = amount - base * (CFG.ORB_SPAWN_COUNT - 1)
+	local orbValue = getOrbsForPlayer(player)
 
 	for i = 1, CFG.ORB_SPAWN_COUNT do
-		local value = (i == CFG.ORB_SPAWN_COUNT) and remainder or base
 		task.delay((i - 1) * 0.1, function()
-			spawnOrb(rootPart.Position, value)
+			spawnOrb(rootPart.Position, orbValue)
 		end)
 	end
 end
