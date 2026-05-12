@@ -211,13 +211,14 @@ local function moveToDestination(model: Model, destination: Vector3): boolean
 		local maxWaypointTime = 3 -- максимум 3 секунды на одну точку
 
 		-- Подписываемся на событие MoveToFinished ДО вызова MoveTo,
-		-- чтобы перехватить ложный MoveToFinished(false) от отмены предыдущего MoveTo
+		-- чтобы перехватить ложный MoveToFinished(false) от отмены предыдущего MoveTo.
+		-- НЕ отключаемся при reached == false, чтобы обработчик остался для реального сигнала.
 		local moveFinishedConnection
 		moveFinishedConnection = humanoid.MoveToFinished:Connect(function(reached: boolean)
 			if reached then
 				waypointReached = true
+				moveFinishedConnection:Disconnect()
 			end
-			moveFinishedConnection:Disconnect()
 		end)
 
 		-- Если точка маршрута требует прыжка (например, ступенька или низкий объект)
@@ -230,23 +231,26 @@ local function moveToDestination(model: Model, destination: Vector3): boolean
 
 		-- Ждём завершения движения к точке с проверкой таймаута
 		while not waypointReached do
-			-- Проверяем таймаут на одну точку
+			-- Таймаут на одну точку — прерываем весь маршрут
 			if tick() - waypointStartTime > maxWaypointTime then
-				warn("[CubeNPC] Таймаут на точке маршрута #" .. i .. ". Пропускаем.")
+				warn("[CubeNPC] Таймаут на точке маршрута #" .. i .. ". Прерываем маршрут.")
 				moveFinishedConnection:Disconnect()
-				break
+				blockedConnection:Disconnect()
+				return false
 			end
 
-			-- Проверяем общий таймаут
+			-- Общий таймаут — прерываем весь маршрут
 			if tick() - moveStartTime > SETTINGS.MoveTimeout then
 				moveFinishedConnection:Disconnect()
-				break
+				blockedConnection:Disconnect()
+				return false
 			end
 
-			-- Проверяем блокировку пути
+			-- Блокировка пути — прерываем весь маршрут
 			if isPathBlocked then
 				moveFinishedConnection:Disconnect()
-				break
+				blockedConnection:Disconnect()
+				return false
 			end
 
 			task.wait(0.1)
@@ -256,7 +260,7 @@ local function moveToDestination(model: Model, destination: Vector3): boolean
 	-- Отключаем обработчик блокировки
 	blockedConnection:Disconnect()
 
-	return not isPathBlocked
+	return true
 end
 
 -- ========== ГЛАВНЫЙ ЦИКЛ ПОВЕДЕНИЯ ==========
